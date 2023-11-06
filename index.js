@@ -26,6 +26,7 @@ async function run() {
         await client.connect();
 
         const roomsCollection = client.db('hotelHydra').collection('rooms');
+        const bookingCollection = client.db('hotelHydra').collection('bookings');
 
 
         app.get('/api/rooms',async(req,res)=>{
@@ -38,6 +39,21 @@ async function run() {
             const id = req.params.id;
             const query = {_id : new ObjectId(id)};
             const result = await roomsCollection.findOne(query);
+            res.send(result)
+        })
+
+        app.post('/api/bookings',async(req,res)=>{
+            const bookings = req.body;
+            const doc = {
+                roomName:bookings.roomName,
+                phoneNumber:bookings.phoneNumber,
+                price:bookings.price,
+                dateIn:bookings.dateIn,
+                dateOut:bookings.dateOut,
+                email:bookings.email,
+                img1:bookings.img1,
+            }
+            const result = await bookingCollection.insertOne(doc);
             res.send(result)
         })
 
