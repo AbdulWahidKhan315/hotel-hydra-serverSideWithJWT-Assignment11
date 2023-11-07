@@ -113,7 +113,11 @@ async function run() {
             const previousSeat = totalSeat.available_seats;
 
             
-            
+            const updateSeat = await roomsCollection.updateOne(
+                {room_name: bookings.roomName},
+                {$set: {available_seats: parseInt(previousSeat)-1}},
+                {upsert:true}
+                )
             const result = await bookingCollection.insertOne(doc);
             res.send(result)
         })
