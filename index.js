@@ -1,12 +1,18 @@
 const express = require('express');
 const cors = require('cors');
-require('dotenv').config()
+require('dotenv').config();
+const cookieParser = require('cookie-parser');
+const jwt = require('jsonwebtoken');
 const app = express();
 const port = process.env.PORT || 5000;
 
 //middleware
-app.use(cors());
+app.use(cors({
+    origin: ['http://localhost:5173'],
+    credentials: true
+}));
 app.use(express.json());
+app.use(cookieParser());
 
 
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
@@ -20,6 +26,23 @@ const client = new MongoClient(uri, {
     }
 });
 
+const verifyToken = async(req,res,next)=>{
+    const token =req.cookies?.token;
+    // console.log('token from verify token',token)
+    if(!token){
+        return res.status(401).send({message: 'not authorized'})
+    }
+    jwt.verify(token,process.env.SECRET,(err,decoded) => {
+        if(err){
+            console.log(err);
+            return res.status(401).send({message: 'unauthorized'})
+        }
+        // console.log('value in the token',decoded);
+        req.user=decoded;
+        next();
+    })
+}
+
 async function run() {
     try {
         // Connect the client to the server	(optional starting in v4.7)
@@ -27,6 +50,24 @@ async function run() {
 
         const roomsCollection = client.db('hotelHydra').collection('rooms');
         const bookingCollection = client.db('hotelHydra').collection('bookings');
+
+        //auth related api
+        app.post('/jwt',(req,res)=>{
+            const user = req.body;
+            const token = jwt.sign(user,process.env.SECRET,{expiresIn: '1h'});
+            res
+            .cookie('token',token,{
+                httpOnly: true,
+                secure:true,
+                sameSite:'none'
+            })
+            .send({success: true})
+        })
+
+        app.post('/logout',async(req,res)=>{
+            const user = req.body;
+            res.clearCookie('token', {maxAge: 0}).send({success: true})
+        })
 
 
         app.get('/api/rooms',async(req,res)=>{
@@ -42,8 +83,11 @@ async function run() {
             res.send(result)
         })
 
-        app.get('/api/bookings',async(req,res)=>{
+        app.get('/api/bookings',verifyToken,async(req,res)=>{
             let query = {};
+            if(req.query?.email !== req.user.email){
+                return res.status(403).send({message: 'forbidden access'});
+            }
             if(req.query?.email){
                 query = {email: req.query?.email}
             }
