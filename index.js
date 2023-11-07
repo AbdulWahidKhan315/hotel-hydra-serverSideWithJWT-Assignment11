@@ -107,6 +107,13 @@ async function run() {
                 email:bookings.email,
                 img1:bookings.img1,
             }
+
+            const query = {room_name: bookings.roomName}
+            const totalSeat = await roomsCollection.findOne(query);
+            const previousSeat = totalSeat.available_seats;
+
+            
+            
             const result = await bookingCollection.insertOne(doc);
             res.send(result)
         })
