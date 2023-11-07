@@ -80,6 +80,22 @@ async function run() {
             res.send(result)
         })
 
+        app.put('/api/update/bookings/:id',async(req,res)=>{
+            const id = req.params.id;
+            const info = req.body;
+            const filter = {_id: new ObjectId(id)};
+            const options = {upsert:true};
+            const updateInfo ={
+                $set:{
+                    phoneNumber: info.phoneNumber,
+                    dateIn: info.dateIn,
+                    dateOut: info.dateOut
+                }
+            }
+            const result = await bookingCollection.updateOne(filter,updateInfo,options);
+            res.send(result);
+        })
+
 
 
         // Send a ping to confirm a successful connection
