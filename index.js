@@ -148,6 +148,16 @@ async function run() {
             res.send(result);
         })
 
+        app.get('/api/review',async(req,res)=>{
+            const name = req.query?.name;
+            let query = {};
+            if(req.query?.name){
+                query = {roomName: name}
+            }
+            const result = await reviewCollection.find(query).toArray();
+            res.send(result);
+        })
+
 
 
         // Send a ping to confirm a successful connection
