@@ -50,6 +50,7 @@ async function run() {
 
         const roomsCollection = client.db('hotelHydra').collection('rooms');
         const bookingCollection = client.db('hotelHydra').collection('bookings');
+        const reviewCollection = client.db('hotelHydra').collection('reviews');
 
         //auth related api
         app.post('/jwt',(req,res)=>{
@@ -137,6 +138,13 @@ async function run() {
                 }
             }
             const result = await bookingCollection.updateOne(filter,updateInfo,options);
+            res.send(result);
+        })
+
+        //review collection api...
+        app.post('/api/review',async(req,res)=>{
+            const review = req.body;
+            const result = await reviewCollection.insertOne(review);
             res.send(result);
         })
 
