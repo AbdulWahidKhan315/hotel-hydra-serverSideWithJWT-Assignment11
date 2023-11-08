@@ -26,19 +26,19 @@ const client = new MongoClient(uri, {
     }
 });
 
-const verifyToken = async(req,res,next)=>{
-    const token =req.cookies?.token;
+const verifyToken = async (req, res, next) => {
+    const token = req.cookies?.token;
     // console.log('token from verify token',token)
-    if(!token){
-        return res.status(401).send({message: 'not authorized'})
+    if (!token) {
+        return res.status(401).send({ message: 'not authorized' })
     }
-    jwt.verify(token,process.env.SECRET,(err,decoded) => {
-        if(err){
+    jwt.verify(token, process.env.SECRET, (err, decoded) => {
+        if (err) {
             console.log(err);
-            return res.status(401).send({message: 'unauthorized'})
+            return res.status(401).send({ message: 'unauthorized' })
         }
         // console.log('value in the token',decoded);
-        req.user=decoded;
+        req.user = decoded;
         next();
     })
 }
@@ -53,117 +53,133 @@ async function run() {
         const reviewCollection = client.db('hotelHydra').collection('reviews');
 
         //auth related api
-        app.post('/jwt',(req,res)=>{
+        app.post('/jwt', (req, res) => {
             const user = req.body;
-            const token = jwt.sign(user,process.env.SECRET,{expiresIn: '1h'});
+            const token = jwt.sign(user, process.env.SECRET, { expiresIn: '1h' });
             res
-            .cookie('token',token,{
-                httpOnly: true,
-                secure:true,
-                sameSite:'none'
-            })
-            .send({success: true})
+                .cookie('token', token, {
+                    httpOnly: true,
+                    secure: true,
+                    sameSite: 'none'
+                })
+                .send({ success: true })
         })
 
-        app.post('/logout',async(req,res)=>{
+        app.post('/logout', async (req, res) => {
             const user = req.body;
-            res.clearCookie('token', {maxAge: 0}).send({success: true})
+            res.clearCookie('token', { maxAge: 0 }).send({ success: true })
         })
 
 
-        app.get('/api/rooms',async(req,res)=>{
+        app.get('/api/rooms', async (req, res) => {
             const cursor = roomsCollection.find();
             const result = await cursor.toArray();
             res.send(result);
         })
 
-        app.get('/api/rooms_details/:id',async(req,res)=>{
+        app.get('/api/rooms_details/:id', async (req, res) => {
             const id = req.params.id;
-            const query = {_id : new ObjectId(id)};
+            const query = { _id: new ObjectId(id) };
             const result = await roomsCollection.findOne(query);
             res.send(result)
         })
 
-        app.get('/api/bookings',verifyToken,async(req,res)=>{
+        app.get('/api/bookings', verifyToken, async (req, res) => {
             let query = {};
-            if(req.query?.email !== req.user.email){
-                return res.status(403).send({message: 'forbidden access'});
+            if (req.query?.email !== req.user.email) {
+                return res.status(403).send({ message: 'forbidden access' });
             }
-            if(req.query?.email){
-                query = {email: req.query?.email}
+            if (req.query?.email) {
+                query = { email: req.query?.email }
             }
             const result = await bookingCollection.find(query).toArray();
             res.send(result)
         })
 
-        app.post('/api/bookings',async(req,res)=>{
+        app.post('/api/bookings', async (req, res) => {
             const bookings = req.body;
             const doc = {
-                roomName:bookings.roomName,
-                phoneNumber:bookings.phoneNumber,
-                price:bookings.price,
-                dateIn:bookings.dateIn,
-                dateOut:bookings.dateOut,
-                email:bookings.email,
-                img1:bookings.img1,
+                roomName: bookings.roomName,
+                phoneNumber: bookings.phoneNumber,
+                price: bookings.price,
+                dateIn: bookings.dateIn,
+                dateOut: bookings.dateOut,
+                email: bookings.email,
+                img1: bookings.img1,
             }
 
-            const query = {room_name: bookings.roomName}
+            const query = { room_name: bookings.roomName }
             const totalSeat = await roomsCollection.findOne(query);
             const previousSeat = totalSeat.available_seats;
 
-            
+
             const updateSeat = await roomsCollection.updateOne(
-                {room_name: bookings.roomName},
-                {$set: {available_seats: parseInt(previousSeat)-1}},
-                {upsert:true}
-                )
+                { room_name: bookings.roomName },
+                { $set: { available_seats: parseInt(previousSeat) - 1 } },
+                { upsert: true }
+            )
             const result = await bookingCollection.insertOne(doc);
             res.send(result)
         })
 
-        app.delete('/api/bookings/:id',async(req,res)=>{
-            const id = req.params.id;
-            const query = {_id: new ObjectId(id)};
+        app.delete('/api/bookings', async (req, res) => {
+            const fullData = req.query.data;
+            const parsed = JSON.parse(fullData)
+            const id = parsed._id
+            const name = parsed.roomName;
+
+            const query2 = { room_name: name }
+            const totalSeat = await roomsCollection.findOne(query2);
+            const previousSeat = totalSeat.available_seats;
+
+
+            const updateSeat = await roomsCollection.updateOne(
+                { room_name: name },
+                { $set: { available_seats: parseInt(previousSeat) + 1 } },
+                { upsert: true }
+            )
+
+
+            const query = { _id: new ObjectId(id) };
             const result = await bookingCollection.deleteOne(query);
             res.send(result);
         })
 
-        app.get('/api/find/forUpdate/:id',async(req,res)=>{
+        app.get('/api/find/forUpdate/:id', async (req, res) => {
             const id = req.params.id;
-            const query = {_id: new ObjectId(id)};
+            const query = { _id: new ObjectId(id) };
             const result = await bookingCollection.findOne(query);
             res.send(result)
         })
 
-        app.put('/api/update/bookings/:id',async(req,res)=>{
+        app.put('/api/update/bookings/:id', async (req, res) => {
             const id = req.params.id;
             const info = req.body;
-            const filter = {_id: new ObjectId(id)};
-            const options = {upsert:true};
-            const updateInfo ={
-                $set:{
+            const filter = { _id: new ObjectId(id) };
+            const options = { upsert: true };
+            const updateInfo = {
+                $set: {
                     phoneNumber: info.phoneNumber,
                     dateIn: info.dateIn,
                     dateOut: info.dateOut
                 }
             }
-            const result = await bookingCollection.updateOne(filter,updateInfo,options);
+            const result = await bookingCollection.updateOne(filter, updateInfo, options);
             res.send(result);
         })
 
         //review collection api...
-        app.post('/api/review',async(req,res)=>{
+        app.post('/api/review', async (req, res) => {
             const review = req.body;
             const result = await reviewCollection.insertOne(review);
             res.send(result);
         })
 
-        app.get('/api/review',async(req,res)=>{
+        app.get('/api/review', async (req, res) => {
             const name = req.query?.name;
             let query = {};
-            if(req.query?.name){
-                query = {roomName: name}
+            if (req.query?.name) {
+                query = { roomName: name }
             }
             const result = await reviewCollection.find(query).toArray();
             res.send(result);
